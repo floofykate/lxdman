@@ -1,0 +1,25 @@
+name: webproxy
+image: "images:alpine/3.11"
+host: |
+  lxc config device add <cname> http_proxy listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80 proxy_protocol=true
+  lxc config device add <cname> https_proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443 proxy_protocol=true
+  lxc config device add <cname> nginx_config_proxy disk source=./containers/webproxy/config path=/etc/nginx
+  lxc config device add <cname> letsencrypt_proxy disk source=./containers/webproxy/letsencrypt/ path=/etc/letsencrypt
+build: |
+  sudo apt install git libpcre3 libpcre3-dev zlib1g zlib1g-dev openssl libssl-dev
+  cd /tmp
+  wget https://nginx.org/download/nginx-1.16.1.tar.gz
+  tar zxvf nginx-1.16.1.tar.gz
+  git clone https://github.com/eustas/ngx_brotli.git
+  cd /tmp/ngx_brotli
+  git submodule update --init
+  cd /tmp/nginx
+ufw: |
+  ufw allow http
+  ufw allow https
+iptables: |
+  sudo iptables -A INPUT -p tcp -m multiport --dports 80,443 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+  sudo iptables -A OUTPUT -p tcp -m multiport --dports 80,443 -m conntrack --ctstate ESTABLISHED -j ACCEPT
+guest: |
+  apk add openssh
+  rc-update add sshd
